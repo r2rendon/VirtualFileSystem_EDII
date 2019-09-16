@@ -36,6 +36,42 @@ string getName(string iString)
     }
 
     return rName;
+
+}
+
+string getFileName(string iString)
+{
+    string rName = "";
+    int spaces = 0;
+
+    for (int i = 0; i < iString.length(); i++)
+    {
+        if(iString[i] == ' ')
+            spaces++;
+        else if (spaces == 1)
+            rName += iString[i];
+        
+    }
+
+    return rName;
+    
+}
+
+string getExportName(string iString)
+{
+    string rName = "";
+    int spaces = 0;
+
+    for (int i = 0; i < iString.length(); i++)
+    {
+        if(iString[i] == ' ')
+            spaces++;
+        else if (spaces == 2)
+            rName += iString[i];
+        
+    }
+
+    return rName;
     
 }
 
@@ -107,6 +143,12 @@ int main() {
             functions.ls(actualDir);
         else if(command == "import")
             functions.import(actualDir, name.c_str());
+        else if(command == "export")
+        {
+            string fName = getFileName(input);
+            string eName = getExportName(input);
+            functions.exportFile(fName.c_str(), eName.c_str());
+        }
         else if(input == "s" || input == "S")
             salir = true;
         else

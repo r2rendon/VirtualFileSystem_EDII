@@ -12,6 +12,7 @@ struct iNodeEntry{
     int rightBrother;
     int firstSon;
     bool occupied;
+    unsigned int size;
 
     iNodeEntry()
     {
@@ -21,9 +22,10 @@ struct iNodeEntry{
         rightBrother = -1;
         firstSon = -1;
         occupied = false;
+        size = 0;
     }
 
-};//SizeOf 44
+};//SizeOf 48
 
 struct MetaData{
 

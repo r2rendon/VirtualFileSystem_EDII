@@ -15,6 +15,8 @@ public:
     void isOccupied();
     bool createdDisc();
     void create_iNodeEntry(iNodeEntry newEntry);
+    iNodeEntry get_iNodeByName(const char* name);
+    int getIndexBy_iNode(iNodeEntry iN);
 
     //Commands
     int cd(char directoryToChange[25], int actual);
@@ -34,6 +36,47 @@ bool FSFunctions::createdDisc()
         return false;
     else
         return true;
+}
+
+iNodeEntry FSFunctions::get_iNodeByName(const char* name)
+{
+    ifstream fileSystem("fileSystem.recio", ios::in | ios::out | ios::binary);
+
+    MetaData md;
+    fileSystem.read(reinterpret_cast<char*>(&md), sizeof(MetaData));
+    BitMap bm(md.totalDirectBlocks);
+    fileSystem.read(reinterpret_cast<char*>(&bm), sizeof(bm));
+    iNodeEntry iRead;
+    for (int i = 0; i < md.totalEntries; i++)
+    {
+        fileSystem.read(reinterpret_cast<char*>(&iRead), sizeof(iRead));
+        if (strcmp(iRead.fileName, name) == 0)
+            return iRead;
+        
+    }
+
+    return iRead;
+
+}
+
+int FSFunctions::getIndexBy_iNode(iNodeEntry iN)
+{
+    ifstream fileSystem("fileSystem.recio", ios::in | ios::out | ios::binary);
+
+    MetaData md;
+    fileSystem.read(reinterpret_cast<char*>(&md), sizeof(MetaData));
+    BitMap bm(md.totalDirectBlocks);
+    fileSystem.read(reinterpret_cast<char*>(&bm), sizeof(bm));
+    iNodeEntry iRead;
+    for (int i = 0; i < md.totalEntries; i++)
+    {
+        fileSystem.read(reinterpret_cast<char*>(&iRead), sizeof(iRead));
+        if (strcmp(iRead.fileName, iN.fileName) == 0)
+            return i;
+        
+    }
+
+    return -1;;
 }
 
 int FSFunctions::getFirstFreeIndex()
@@ -472,6 +515,8 @@ void FSFunctions::import(int actualDir, const char *fileName)
     double size = fileSizeInBytes / (double)4096;
     long remainingSize = fileSizeInBytes;
 
+    newFile.size = (unsigned int)fileSizeInBytes;
+
     //ADD THE SIZE OF THE FILE
 
     fileReader->seekg(0, ios::beg);
@@ -517,7 +562,47 @@ void FSFunctions::import(int actualDir, const char *fileName)
 
 }
 
-void FSFunctions::exportFile(const char *originFile, const char *exportFileName)
+void FSFunctions::exportFile(const char* originFile, const char* exportFileName)
 {
-    fstream exportReturnFile(exportFileName, ios::binary | ios::in | ios::out);
+	ofstream exporter;
+	exporter.open(exportFileName, ios::binary | ios::out);
+
+	iNodeEntry iOriginFile = get_iNodeByName(originFile);
+	int size = iOriginFile.size;
+	int remainingSize = size;
+
+	fstream fileSystem("fileSystem.recio", ios::in | ios::out | ios::binary);
+
+	MetaData md;
+	fileSystem.read(reinterpret_cast<char*>(&md), sizeof(MetaData));
+	BitMap bm(md.totalDirectBlocks);
+	fileSystem.read(reinterpret_cast<char*>(&bm), sizeof(bm));
+	IDB* iDataBlock = new IDB;
+	for (int i = 0; i < md.totalEntries; i++)
+	{
+		fileSystem.read(reinterpret_cast<char*>(iDataBlock), sizeof(IDB));
+		if (i = getIndexBy_iNode(iOriginFile))
+			break;
+	}
+
+	for (int i = 0; i < CANTIDAD_DE_BLOQUES_INODE; i++)
+	{
+		if (remainingSize <= 0)
+			break;
+
+		if (iDataBlock->iBlocks[i].data[4096] == '$')
+			break;
+
+		if (remainingSize < 4096)
+			exporter.write(reinterpret_cast<char*>(&iDataBlock->iBlocks[i].data), remainingSize);
+		else
+			exporter.write(reinterpret_cast<char*>(&iDataBlock->iBlocks[i].data), 4096);
+
+		remainingSize -= 4096;
+
+	}
+
+	exporter.close();
+	fileSystem.close();
+
 }
