@@ -149,6 +149,14 @@ int main() {
             string eName = getExportName(input);
             functions.exportFile(fName.c_str(), eName.c_str());
         }
+        else if(command == "rm")
+        {
+            iNodeEntry frm = functions.get_iNodeByName(name.c_str());
+            int index = functions.getIndexBy_iNode(frm);
+            functions.rm(frm, index);
+        }
+        else if(command == "print")
+            functions.print_BitMap();
         else if(input == "s" || input == "S")
             salir = true;
         else

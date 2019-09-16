@@ -17,13 +17,16 @@ public:
     void create_iNodeEntry(iNodeEntry newEntry);
     iNodeEntry get_iNodeByName(const char* name);
     int getIndexBy_iNode(iNodeEntry iN);
+    void eraseIDB(int index);
+    void act_bitMap(BitMap newBitmap);
+    void print_BitMap();
 
     //Commands
     int cd(char directoryToChange[25], int actual);
     int inverseCD(iNodeEntry actualDir);
     int mkdir(int cdFather, char name[25]);//Returns an int refering to its position in the global entries
     void ls(int actualDir);
-    bool rm(int actualDir, int sonDirToDelete);
+    void rm(iNodeEntry iRead ,int pos);
     void import(int actualDir, const char *fileName);
     void exportFile(const char *originFile, const char *exportFile);
 
@@ -36,6 +39,26 @@ bool FSFunctions::createdDisc()
         return false;
     else
         return true;
+}
+
+void FSFunctions::print_BitMap()
+{
+    ifstream fileSystem("fileSystem.recio", ios::in | ios::binary);
+    MetaData md;
+    fileSystem.read(reinterpret_cast<char*>(&md), sizeof(MetaData));
+    BitMap bm(md.totalDirectBlocks);
+    fileSystem.read(reinterpret_cast<char*>(&bm), sizeof(bm));
+    bm.printBitMap(md.totalDirectBlocks);
+    fileSystem.close();
+}
+
+void FSFunctions::act_bitMap(BitMap newBitmap)
+{
+    ofstream fileSystem("fileSystem.recio", ios::in | ios::out | ios::binary);
+
+    fileSystem.seekp(ios::beg+sizeof(MetaData));
+    fileSystem.write(reinterpret_cast<char*>(&newBitmap), sizeof(newBitmap));
+    fileSystem.close();
 }
 
 iNodeEntry FSFunctions::get_iNodeByName(const char* name)
@@ -206,6 +229,8 @@ string FSFunctions::getDirNameByIndex(int index)
 iNodeEntry FSFunctions::get_iNodeByIndex(int index)
 {
     iNodeEntry rNode;
+    if(index == -1)
+        return rNode;
 
     ifstream fileSystem("fileSystem.recio", ios::in | ios::binary);
     fileSystem.seekg(0, ios::beg);
@@ -267,6 +292,36 @@ void FSFunctions::rewrite_iNode(int index, iNodeEntry rw){
     fileSystem.write(reinterpret_cast<const char*>(&rw), sizeof(iNodeEntry));
     fileSystem.close();
     
+}
+
+void FSFunctions::eraseIDB(int index)
+{
+    fstream fileSystem("fileSystem.recio", ios::in | ios::out | ios::binary);
+
+    if (!fileSystem)
+    {
+        cout << "Error opening the File System!";
+        return;
+    }
+
+    fileSystem.seekg(0, ios::beg);
+    MetaData md;
+    fileSystem.read(reinterpret_cast<char*>(&md), sizeof(MetaData));
+    BitMap bm(md.totalDirectBlocks);
+    fileSystem.read(reinterpret_cast<char*>(&bm), sizeof(bm));
+    iNodeEntry rw;
+    for (int i = 0; i < md.totalEntries; i++)
+        fileSystem.read(reinterpret_cast<char*>(&rw), sizeof(iNodeEntry));
+    IDB * iDataBlocks = new IDB;
+    // for (int i = 0; i < md.totalEntries; i++)
+    // {
+    //     fileSystem.read(reinterpret_cast<char*>(iDataBlocks), sizeof(IDB));
+    //     if (i == index)
+    //         break;
+        
+    // }
+    fileSystem.seekp(ios::beg+sizeof(MetaData)+sizeof(bm)+(sizeof(iNodeEntry)*md.totalEntries+(sizeof(IDB)*index)));
+    fileSystem.write(reinterpret_cast<const char*>(iDataBlocks), sizeof(IDB));
 }
 
 int FSFunctions::cd(char directoryToChange[25], int actual)
@@ -456,44 +511,26 @@ void FSFunctions::ls(int actualDir)
     
 }
 
-bool FSFunctions::rm(int actualDir, int sonDir)
+void FSFunctions::rm(iNodeEntry iRead, int pos)
 {
-    fstream fileSystem("fileSystem.recio", ios::in | ios::out | ios::binary);
-    if (!fileSystem)
-    {
-        cout << "\nError opening the File System.";
-        return false;
-    }
     
-    if (sonDir == 0)
-        cout << "\n\t\tNo puede borrar la carpeta raiz!!";
-    else
-    {
-        iNodeEntry emptyNode;
-
-        MetaData md;
-        fileSystem.seekg(0, ios::beg);
-        fileSystem.read(reinterpret_cast<char*>(&md), sizeof(MetaData));
-
-        int totalEntries = md.totalEntries;
-        iNodeEntry iRead;
-        for (int i = 0; i < totalEntries; i++)
-        {
-            fileSystem.read(reinterpret_cast<char *>(&iRead), sizeof(iRead));
-            
-            if (iRead.father == sonDir || iRead.father == i)
-            {
-                fileSystem.seekp(sizeof(MetaData)+(sizeof(iNodeEntry)*i));
-                fileSystem.write(reinterpret_cast<const char *>(&emptyNode), sizeof(iNodeEntry));
-                return true;
-            }
-            
-        }
-
-    }
+    if(pos == -1)
+        return;
+    int sonPos = iRead.firstSon;
+    int brotherPos = iRead.rightBrother;
     
-    return false;
-
+    iNodeEntry empty;
+    rewrite_iNode(pos, empty);
+    if (brotherPos != -1)
+    {
+        iNodeEntry brother = get_iNodeByIndex(brotherPos);
+        rm(brother, brotherPos);
+    }
+    if (sonPos != -1)
+    {
+        iNodeEntry son = get_iNodeByIndex(sonPos);
+        rm(son, sonPos);
+    }
 }
 
 void FSFunctions::import(int actualDir, const char *fileName)
@@ -541,9 +578,15 @@ void FSFunctions::import(int actualDir, const char *fileName)
         if (!fileReader->eof())
         {
             if (remainingSize < 4096)
+            {
                 fileReader->read(iDataBlock->iBlocks[i].data, remainingSize);
+                bm.setOn(i);
+            }
             else
+            {
                 fileReader->read(iDataBlock->iBlocks[i].data, 4096);
+                bm.setOn(i);
+            }
 
             remainingSize -= 4096;
         }
