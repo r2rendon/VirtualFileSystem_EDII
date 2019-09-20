@@ -608,7 +608,7 @@ void FSFunctions::import(int actualDir, const char *fileName)
 void FSFunctions::exportFile(const char* originFile, const char* exportFileName)
 {
 	ofstream exporter;
-	exporter.open(exportFileName, ios::binary | ios::out);
+	exporter.open(exportFileName, ios::binary | ios::out | ios::app);
 
 	iNodeEntry iOriginFile = get_iNodeByName(originFile);
 	int size = iOriginFile.size;
